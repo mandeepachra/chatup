@@ -5,11 +5,16 @@
 <link rel="manifest" href="manifest.json">
 
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-  }
-</script>
-    <meta charset="UTF-8">
+      // Service worker register karna zaroori hai
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Worker Registered'))
+            .catch(err => console.log('Error:', err));
+        });
+      }
+    </script>
+<meta charset="UTF-8">
     <title>Chat App - Login & Signup</title>
     <style>
 /* Purani fix width ki jagah ye use karein */
