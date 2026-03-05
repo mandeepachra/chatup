@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Messenger</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: #764ba2; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: white; padding: 20px; }
+        .profile-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(15px); padding: 30px; border-radius: 20px; width: 100%; max-width: 400px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        h2 { text-align: center; margin-bottom: 20px; font-weight: 600; }
+        .info-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; margin-bottom: 10px; line-height: 1.8; }
+        .info-box p { margin-bottom: 5px; font-size: 14px; word-wrap: break-word; }
+        .info-box b { color: #23d5ab; }
+        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: none; outline: none; color: #333; font-size: 14px; }
+        textarea { height: 80px; resize: none; font-family: inherit; }
+        .btn { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.3s; font-size: 15px; }
+        .edit-btn { background: #ffc107; color: #333; }
+        .save-btn { background: #23d5ab; color: white; }
+        .back-btn { background: white; color: #764ba2; }
+        .hidden { display: none; }
+        #loading-txt { text-align: center; font-size: 12px; margin-bottom: 10px; color: #eee; }
+    </style>
+</head>
+<body>
+
+    <div class="profile-card">
+        <h2>My Profile</h2>
+        <div id="loading-txt">Checking Session...</div>
+
+        <div id="display-mode">
+            <div class="info-box">
+                <p><b>Username:</b> <span id="p-user">...</span></p>
+                <p><b>Nickname:</b> <span id="p-nick">...</span></p>
+                <p><b>Bio:</b> <span id="p-bio">...</span></p> <p><b>DOB:</b> <span id="p-dob">...</span></p>
+                <p><b>Mobile:</b> <span id="p-mob">...</span></p>
+            </div>
+            <button class="btn edit-btn" onclick="toggleMode(true)">✏️ Edit Profile</button>
+            <button class="btn back-btn" onclick="window.location.href='chat.html'">← Back</button>
+        </div>
+
+        <div id="edit-mode" class="hidden">
+            <input type="text" id="edit-u" placeholder="New Username">
+            <input type="text" id="edit-n" placeholder="New Nickname">
+            <textarea id="edit-b" placeholder="Write your Bio..."></textarea> <input type="date" id="edit-d">
+            <input type="text" id="edit-m" placeholder="New Mobile Number">
+            <button class="btn save-btn" id="saveBtn">💾 Save Changes</button>
+            <button class="btn back-btn" onclick="toggleMode(false)">Cancel</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Firebase Config Yahan Paste Karein
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBFOqarmLLwqm9Xu9hxRiByowYBlOzBCn4",
+  authDomain: "project-name-38244.firebaseapp.com",
+  projectId: "project-name-38244",
+  storageBucket: "project-name-38244.firebasestorage.app",
+  messagingSenderId: "1072997114249",
+  appId: "1:1072997114249:web:834ee5651d7f3e8944c158",
+  measurementId: "G-785KLPXEZD"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.toggleMode = (isEdit) => {
+            document.getElementById('display-mode').classList.toggle('hidden', isEdit);
+            document.getElementById('edit-mode').classList.toggle('hidden', !isEdit);
+        };
+
+        async function fetchProfile(uid) {
+            document.getElementById('loading-txt').innerText = "Fetching Data...";
+            try {
+                const snap = await getDoc(doc(db, "users", uid));
+                if (snap.exists()) {
+                    const d = snap.data();
+                    document.getElementById('p-user').innerText = "@" + (d.username || "n/a");
+                    document.getElementById('p-nick').innerText = d.nickname || "n/a";
+                    document.getElementById('p-bio').innerText = d.bio || "No bio yet..."; // Bio Load
+                    document.getElementById('p-dob').innerText = d.dob || "n/a";
+                    document.getElementById('p-mob').innerText = d.mobile || "n/a";
+                    
+                    document.getElementById('edit-u').value = d.username || "";
+                    document.getElementById('edit-n').value = d.nickname || "";
+                    document.getElementById('edit-b').value = d.bio || ""; // Bio input pre-fill
+                    document.getElementById('edit-d').value = d.dob || "";
+                    document.getElementById('edit-m').value = d.mobile || "";
+                    document.getElementById('loading-txt').innerText = "Data Loaded";
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) { fetchProfile(user.uid); } 
+            else { window.location.href = "index.html"; }
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const u = document.getElementById('edit-u').value.trim().toLowerCase();
+            const n = document.getElementById('edit-n').value.trim();
+            const b = document.getElementById('edit-b').value.trim(); // Bio Value
+            const d = document.getElementById('edit-d').value;
+            const m = document.getElementById('edit-m').value.trim();
+
+            if (!u || !n) return alert("Username & Nickname required!");
+
+            document.getElementById('saveBtn').innerText = "Saving...";
+            try {
+                await setDoc(doc(db, "users", user.uid), {
+                    username: u,
+                    nickname: n,
+                    bio: b, // Bio Save
+                    dob: d,
+                    mobile: m,
+                    uid: user.uid
+                }, { merge: true });
+
+                alert("Profile Updated with Bio!");
+                toggleMode(false);
+                fetchProfile(user.uid);
+            } catch (err) { alert("Save Error: " + err.message); }
+            finally { document.getElementById('saveBtn').innerText = "💾 Save Changes"; }
+        });
+    </script>
+</body>
+</html>

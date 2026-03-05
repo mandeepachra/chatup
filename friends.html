@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Friends & Chat</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: #764ba2; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: white; padding: 20px; }
+        .container { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(15px); padding: 25px; border-radius: 20px; width: 100%; max-width: 500px; border: 1px solid rgba(255,255,255,0.2); height: 85vh; display: flex; flex-direction: column; }
+        
+        /* List View */
+        .friend-item { background: white; color: #333; margin: 10px 0; padding: 12px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-grp { display: flex; gap: 8px; }
+        .action-btn { padding: 8px 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
+        .profile-btn { background: #764ba2; color: white; }
+        .chat-btn { background: #23d5ab; color: white; }
+
+        /* Chat Section */
+        #chat-section { display: none; flex-direction: column; height: 100%; }
+        #messages { flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 15px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        .msg { padding: 10px 15px; border-radius: 18px; max-width: 80%; font-size: 14px; line-height: 1.4; position: relative; }
+        .sent { align-self: flex-end; background: #23d5ab; color: white; border-bottom-right-radius: 2px; }
+        .received { align-self: flex-start; background: white; color: #333; border-bottom-left-radius: 2px; }
+        
+        .input-row { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border-radius: 10px; border: none; outline: none; font-size: 14px; }
+        .send-v-btn { background: #23d5ab; color: white; border: none; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; color: #333; padding: 30px; border-radius: 20px; width: 90%; max-width: 350px; text-align: center; }
+        .modal-btn { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; }
+
+        .back-nav { background: white; color: #764ba2; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: 600; margin-top: 15px; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="list-section">
+            <h2 style="text-align: center; margin-bottom: 15px;">My Friends</h2>
+            <div id="friends-list"></div>
+            <button class="back-nav" onclick="window.location.href='chat.html'">← Back to Menu</button>
+        </div>
+
+        <div id="chat-section">
+            <h3 id="chat-title" style="margin-bottom: 10px; font-size: 18px;">Chat</h3>
+            <div id="messages"></div>
+            <div class="input-row">
+                <input type="text" id="msg-input" placeholder="Write a message...">
+                <button class="send-v-btn" id="finalSendBtn">Send</button>
+            </div>
+            <button class="back-nav" onclick="closeChat()">← Back to List</button>
+        </div>
+    </div>
+
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <h3 id="m-name">User Profile</h3>
+            <p id="m-user" style="color:#764ba2; margin-bottom: 20px; font-weight: 600;"></p>
+            <button class="modal-btn" style="background: #ffc107;" onclick="unfriend()">💔 Unfriend</button>
+            <button class="modal-btn" style="background: #dc3545; color: white;" onclick="blockFriend()">🚫 Block</button>
+            <button class="modal-btn" style="background: #eee;" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs, doc, deleteDoc, setDoc, onSnapshot, addDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // 🔥 APNI CONFIG YAHAN DALO 🔥
+       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBFOqarmLLwqm9Xu9hxRiByowYBlOzBCn4",
+  authDomain: "project-name-38244.firebaseapp.com",
+  projectId: "project-name-38244",
+  storageBucket: "project-name-38244.firebasestorage.app",
+  messagingSenderId: "1072997114249",
+  appId: "1:1072997114249:web:834ee5651d7f3e8944c158",
+  measurementId: "G-785KLPXEZD"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let selectedFriend = null; 
+        let chatUnsub = null;
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) { loadFriendsList(user.uid); }
+            else { window.location.href="index.html"; }
+        });
+
+        // 1. Friends List Fetching
+        async function loadFriendsList(myId) {
+            const q = query(collection(db, "friends"), where("users", "array-contains", myId));
+            const snap = await getDocs(q);
+            const listContainer = document.getElementById('friends-list');
+            listContainer.innerHTML = "";
+
+            if(snap.empty) {
+                listContainer.innerHTML = "<p style='text-align:center; opacity:0.6; margin-top:20px;'>No friends found.</p>";
+            }
+
+            snap.forEach(d => {
+                const data = d.data();
+                const fId = data.users[0] === myId ? data.users[1] : data.users[0];
+                const fName = data.usernames[data.users[0] === myId ? 1 : 0];
+
+                const div = document.createElement('div');
+                div.className = "friend-item";
+                div.innerHTML = `<span><b>@${fName}</b></span>
+                    <div class="btn-grp">
+                        <button class="action-btn profile-btn" onclick="openProfile('${fId}', '${fName}', '${d.id}')">Profile</button>
+                        <button class="action-btn chat-btn" onclick="openChat('${fId}', '${fName}')">Chat Now</button>
+                    </div>`;
+                listContainer.appendChild(div);
+            });
+        }
+
+        // 2. Profile Actions (Modal)
+        window.openProfile = (uid, name, docId) => {
+            selectedFriend = { uid, name, docId };
+            document.getElementById('m-name').innerText = name;
+            document.getElementById('m-user').innerText = "@" + name;
+            document.getElementById('profileModal').style.display = "flex";
+        };
+
+        window.closeModal = () => { document.getElementById('profileModal').style.display = "none"; };
+
+        window.unfriend = async () => {
+            if(confirm("Are you sure you want to unfriend?")) {
+                await deleteDoc(doc(db, "friends", selectedFriend.docId));
+                location.reload();
+            }
+        };
+
+        window.blockFriend = async () => {
+            if(confirm("Block this user?")) {
+                await setDoc(doc(db, "users", auth.currentUser.uid, "blocked", selectedFriend.uid), { blocked: true });
+                await deleteDoc(doc(db, "friends", selectedFriend.docId));
+                location.reload();
+            }
+        };
+
+        // 3. CHAT LOGIC (FIXED)
+        window.openChat = (uid, name) => {
+            selectedFriend = { uid, name };
+            document.getElementById('list-section').style.display = "none";
+            document.getElementById('chat-section').style.display = "flex";
+            document.getElementById('chat-title').innerText = "Chat with " + name;
+            
+            const myId = auth.currentUser.uid;
+            const chatId = [myId, uid].sort().join("_");
+            
+            const q = query(collection(db, "chats", chatId, "messages"), orderBy("time", "asc"));
+            
+            if(chatUnsub) chatUnsub(); // Clear old listener
+
+            chatUnsub = onSnapshot(q, (snap) => {
+                const msgBox = document.getElementById('messages');
+                msgBox.innerHTML = "";
+                
+                snap.forEach(mDoc => {
+                    const m = mDoc.data();
+                    const div = document.createElement('div');
+                    div.className = `msg ${m.sender === myId ? 'sent' : 'received'}`;
+                    div.innerText = m.text;
+                    msgBox.appendChild(div);
+                });
+                msgBox.scrollTop = msgBox.scrollHeight;
+            }, (err) => {
+                console.error("Chat Error:", err);
+                // Agar index error aaye toh yahan query bina orderBy ke chalegi fallback ke liye
+                alert("Please check console for indexing link if messages don't appear.");
+            });
+        };
+
+        // 4. Send Message Logic
+        document.getElementById('finalSendBtn').onclick = async () => {
+            const inp = document.getElementById('msg-input');
+            const txt = inp.value.trim();
+            if(!txt || !selectedFriend) return;
+
+            const myId = auth.currentUser.uid;
+            const chatId = [myId, selectedFriend.uid].sort().join("_");
+
+            await addDoc(collection(db, "chats", chatId, "messages"), {
+                text: txt,
+                sender: myId,
+                time: serverTimestamp()
+            });
+            inp.value = "";
+        };
+
+        window.closeChat = () => {
+            if(chatUnsub) chatUnsub();
+            document.getElementById('list-section').style.display = "block";
+            document.getElementById('chat-section').style.display = "none";
+        };
+    </script>
+</body>
+</html>
