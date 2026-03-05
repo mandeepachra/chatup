@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" user-scalable=no">
 <link rel="manifest" href="manifest.json">
 
 <script>
@@ -11,6 +12,12 @@
     <meta charset="UTF-8">
     <title>Chat App - Login & Signup</title>
     <style>
+/* Purani fix width ki jagah ye use karein */
+.container {
+  width: 100%;       /* Poori screen cover karega */
+  max-width: 500px;  /* Bade screen par 500px se zyada nahi hoga */
+  margin: 0 auto;    /* Center mein rahega */
+}
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
         body { background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab); background-size: 400% 400%; animation: gradientBG 15s ease infinite; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
